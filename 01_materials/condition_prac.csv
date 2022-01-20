@@ -1,0 +1,7 @@
+﻿list,item,emotion,tense,sentence,target_x,target_y,distract_x,distract_y
+prac,1,anxiety,past,I was up a height,-0.25,0.25,0.25,-0.25
+prac,2,anxiety,future,I will be up a height ,0.25,0.25,-0.25,-0.25
+prac,3,depress,past,Below the surface was sadness ,-0.25,-0.25,0.25,0.25
+prac,4,depress,future,Below the surface will be sadness ,0.25,-0.25,-0.25,0.25
+prac,5,neutral,present,I like to bury my head in a book,-0.25,0.25,0.25,-0.25
+prac,6,neutral,present,He invested a lot in the relationship,0.25,-0.25,-0.25,0.25

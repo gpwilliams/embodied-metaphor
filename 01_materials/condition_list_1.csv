@@ -1,0 +1,65 @@
+﻿list,item,emotion,tense,sentence,target_x,target_y,distract_x,distract_y
+1,1,anxiety,future,The thought will make my nerves skyrocket ,0.25,0.25,-0.25,-0.25
+1,2,anxiety,past,It did wind me up ,-0.25,0.25,0.25,-0.25
+1,3,anxiety,future,I would be like a cat on a hot tin roof ,0.25,0.25,-0.25,-0.25
+1,4,anxiety,past,I was bouncing off the ceiling ,-0.25,0.25,0.25,-0.25
+1,5,anxiety,future,The thought will drive me up the wall ,0.25,0.25,-0.25,-0.25
+1,6,anxiety,past,Panic stations were on high alert ,-0.25,0.25,0.25,-0.25
+1,7,anxiety,future,It would send my nerves through the roof ,0.25,0.25,-0.25,-0.25
+1,8,anxiety,past,I was off the chart ,-0.25,0.25,0.25,-0.25
+1,9,anxiety,future,My nerves would rise ,0.25,0.25,-0.25,-0.25
+1,10,anxiety,past,I was a nervous wreck ,-0.25,0.25,0.25,-0.25
+1,11,anxiety,future,The lid would fly off and it would all come out ,0.25,0.25,-0.25,-0.25
+1,12,anxiety,past,I was shaking like a leaf ,-0.25,0.25,0.25,-0.25
+1,13,anxiety,future,I would not be able to contain my fears ,0.25,0.25,-0.25,-0.25
+1,14,anxiety,past,I was struck down by fear ,-0.25,0.25,0.25,-0.25
+1,15,anxiety,future,I would not be able to shake the nervous feeling ,0.25,0.25,-0.25,-0.25
+1,16,anxiety,past,Anxiety had made my patience run out ,-0.25,0.25,0.25,-0.25
+1,17,depression,future,I will reach rock bottom ,0.25,-0.25,-0.25,0.25
+1,18,depression,past,I fell into the abyss ,-0.25,-0.25,0.25,0.25
+1,19,depression,future,I will be sucked into a black hole ,0.25,-0.25,-0.25,0.25
+1,20,depression,past,The sinking feeling came on ,-0.25,-0.25,0.25,0.25
+1,21,depression,future,Talking with her brings me down ,0.25,-0.25,-0.25,0.25
+1,22,depression,past,Dark clouds were bearing down on me ,-0.25,-0.25,0.25,0.25
+1,23,depression,future,Things will go rapidly downhill ,0.25,-0.25,-0.25,0.25
+1,24,depression,past,I felt totally deflated ,-0.25,-0.25,0.25,0.25
+1,25,depression,future,The experience will be draining ,0.25,-0.25,-0.25,0.25
+1,26,depression,past,I felt downtrodden ,-0.25,-0.25,0.25,0.25
+1,27,depression,future,I would be at the bottom of the barrel ,0.25,-0.25,-0.25,0.25
+1,28,depression,past,It made me feel low and numb ,-0.25,-0.25,0.25,0.25
+1,29,depression,future,It would make my mood nosedive ,0.25,-0.25,-0.25,0.25
+1,30,depression,past,I felt a lesser person ,-0.25,-0.25,0.25,0.25
+1,31,depression,future,I will descend into oblivion ,0.25,-0.25,-0.25,0.25
+1,32,depression,past,I was down in the dumps ,-0.25,-0.25,0.25,0.25
+1,33,neutral,present,The wind whistled,-0.25,-0.25,0.25,0.25
+1,34,neutral,present,I drove the point home,-0.25,-0.25,0.25,0.25
+1,35,neutral,present,I am falling behind,-0.25,-0.25,0.25,0.25
+1,36,neutral,present,That ship has sailed,-0.25,-0.25,0.25,0.25
+1,37,neutral,present,I could not get into the series,-0.25,0.25,0.25,-0.25
+1,38,neutral,present,It was a red flag,-0.25,0.25,0.25,-0.25
+1,39,neutral,present,I defended my choices,-0.25,0.25,0.25,-0.25
+1,40,neutral,present,Out of the frying pan and into the fire,-0.25,0.25,0.25,-0.25
+1,41,neutral,present,We can build our relationship,0.25,-0.25,-0.25,0.25
+1,42,neutral,present,The cat is out of the bag,0.25,-0.25,-0.25,0.25
+1,43,neutral,present,It is time to loosen the leash,0.25,-0.25,-0.25,0.25
+1,44,neutral,present,Ill put that idea in the bin,0.25,-0.25,-0.25,0.25
+1,45,neutral,present,The results were staggering,0.25,0.25,-0.25,-0.25
+1,46,neutral,present,Conversation was flowing,0.25,0.25,-0.25,-0.25
+1,47,neutral,present,She rules the roost,0.25,0.25,-0.25,-0.25
+1,48,neutral,present,He is in my sights,0.25,0.25,-0.25,-0.25
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,

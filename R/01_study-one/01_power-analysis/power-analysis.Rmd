@@ -1,0 +1,577 @@
+---
+title: "Study 1: Power Analysis"
+author: "Glenn Williams"
+date: "01/11/2021"
+output: 
+  html_document:
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 8,
+  fig.height = 5,
+  out.width  = "100%"
+)
+```
+
+```{r libraries, message=FALSE}
+# load required packages
+library("lme4")        # model specification / estimation
+library("afex")        # anova and deriving p-values from lmer
+library("broom.mixed") # extracting data from model fits 
+library("faux")        # data simulation
+library("tidyverse")   # data wrangling and visualisation
+library("here")        # for consistent file paths across machines
+library("kableExtra")  # for printing tables in rmarkdown
+
+# ensure this script returns the same results on each run
+set.seed(1892)
+faux_options(verbose = FALSE)
+```
+
+```{r functions}
+# functions
+logit <- function(x) { log(x / (1 - x)) }
+inv_logit <- function(x) { 1 / (1 + exp(-x)) }
+```
+
+# Pilot Data
+
+## Design
+
+### Set up
+
+In a pilot study we explored whether the implied orientation of metaphors can influence overt behaviour in target selection. In this study, participants read a metaphor associated with anxiety or depression. Sentences were presented either in past or future tense. Crucially, fillers were included which had no association with anxiety or depression states (termed neutral emotion) and were always presented in present tense.
+
+After reading the sentence (e.g. depression and future tense = "I will reach rock bottom.") participants pressed a button to replace the sentence with two targets presented in the upper and lower visual field and randomly offset to the left or right of the screen. Participants were tasked with clicking one of the targets as quickly and accurately as possible. We predicted participants would click on targets in the upper visual field more often following anxiety-related metaphors and they would click on targets in the lower visual field more often following depression-related metaphors.
+
+### Issues
+
+Unfortunately, while neutral and present tense items were included in the design these were used only for the filler items. Thus, present tense versions of the anxiety and depression metaphors were not included and the neutral items only appeared in present tense and not past and future tense. This precludes a fully crossed design allowing us to delineate the effects of emotion and tense on clicking behaviour. As a further issue, only two targets were presented to participants after the sentences in the upper and lower visual field and with offsets to the left and right sides of the screen. Thus, if a target is in the upper visual field to the right it is unclear whether participants clicked it due to any bias in clicking up (e.g. from the emotion) or for clicking targets to the right (e.g. from tense). Thus Study 1 will address both of these issues by having a fully crossed design and including four targets; one in each quadrant of the screen. Still, since emotion is the main focus of Study 1 we will base the power analysis on this primary analysis. Tense will be analysed in terms of left and right clicks but this is secondary and thus not of primary interest in terms of the power analysis.
+
+Due to these issues, the following analysis focuses on emotion only, but caution must be applied when interpreting the findings.
+
+# Primary Analyses: Emotion
+
+## Pilot Data Analysis
+
+Of primary interest was the proportion of clicks on targets in the upward position (vs. downward position) on the screen. Here, a binary outcome represents this behaviour, captured in the clicked `clicked_up` variable whereby a 1 indicates participants clicked up and a 0 indicates they did not. On a trial by trial basis with a binomial outcome the data can be appropriately modelled using a generalised linear mixed model with a logit link function. This ensures that the model does not make predictions beyond the bounds of the data (i.e. proportions of clicks below 0 or above 1). The coefficients from a logit mixed model represents probability in the log-odds space. A demonstration of how the two are related is shown below.
+
+```{r logit-plot, fig.width = 8, fig.height = 3}
+data.frame(prob = seq(0, 1, .01)) %>%
+  mutate(logit = logit(prob)) %>%
+  ggplot(aes(x = logit, y = prob)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(-6, 6, by = 0.4)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
+  theme_bw() +
+  labs(x = "Logit", y = "Probability") +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 8),
+    panel.grid.minor = element_blank()
+  )
+```
+
+To get a representative estimate of the parameters needed for a power analysis, we first analysed the pilot data. We used a generalised linear mixed effects model with a logit link function and with a fixed effect of emotion. Emotion was treatment coded such that the intercept represents the neutral condition, and the two slope terms represent the difference between the neutral condition and the anxiety and depression conditions respectively. The model used a maximal random effects structure (Barr et al., 2013). Namely, it contained a random intercept and slope of emotion for each participant as participants see each condition throughout the study, and a random intercept for item since each item can only represent a single condition.
+
+Crucially, the fixed effects parameter estimates report *p*-values testing against the null (i.e. a score on log-odds of zero) for the neutral condition. On the probability space this means that the coefficient is tested against being a probability of 50%, or an equal chance of clicking up or down ($logit(.50) = 0$). This ensures a test indicating whether or not the neutral condition shows any bias in clicks towards any direction. The two slope terms then test against whether the difference between the neutral and anxiety, and neutral and depression conditions is 0; i.e. whether the emotion metaphors bias clicks upwards or downwards relative to the neutral items.
+
+```{r}
+data_pilot <- read_csv(here("02_data", "00_pilot", "02_cleaned", "cleaned_data_r.csv")) %>% 
+  mutate(
+    participant = as.factor(participant),
+    item = as.factor(item),
+    emotion = factor(
+      emotion, 
+      levels = c("neutral", "anxiety", "depression"),
+      labels = c("neutral", "anxiety", "depression")
+    ),
+    tense = factor(
+      tense,
+      levels = c("present", "past", "future"),
+      labels = c("present", "past", "future")
+    )
+  )
+
+# treatment code contrasts for variables of interest
+contrasts(data_pilot$emotion) <- contr.treatment(3) # neutral = intercept
+contrasts(data_pilot$tense) <- contr.treatment(3) # present = intercept
+```
+
+As emotion is within-subjects (participants see all emotions) and between-items (items are neutral, anxiety-related, depression-related) the model uses a fixed effect of emotion, a random intercept and slope of emotion by participants (including their correlation), and a random intercept by item. The full model results are shown below.
+
+```{r}
+pilot_emotion_mod_filename <- here(
+  "03_analysis", 
+  "01_study-one", 
+  "01_power-analysis",
+  "pilot_emotion_mod.rds"
+)
+
+if (!file.exists(pilot_emotion_mod_filename)) {
+  
+  # run model and save to a file
+  mod_emotion_pilot <- lme4::glmer(
+    clicked_up ~ emotion + 
+      (1 + emotion | participant) + (1 | item), 
+    data = data_pilot, 
+    family = binomial(link = "logit")
+  )
+  
+  write_rds(mod_emotion_pilot, pilot_emotion_mod_filename)
+}
+
+if(file.exists(pilot_emotion_mod_filename)) {
+  mod_emotion_pilot <- read_rds(pilot_emotion_mod_filename)
+}
+
+summary(mod_emotion_pilot)
+```
+
+With 97 participants and 48 items we found a significant effect for the intercept; the neutral condition tested against a log odds of 0. This shows that for the neutral condition the proportion of upward clicks deviated from chance with more up clicks than expected by chance. We found no significant effect for the difference between the neutral and anxiety conditions. Finally, we found a significant effect for the difference between the neutral and depression condition whereby participants were less likely to click up (and therefore more likely to click down) in the depression condition. The results are also shown with the probability of clicking up below (see the `prob` column).
+
+```{r}
+pilot_emotion_est <- broom.mixed::tidy(mod_emotion_pilot)
+
+pilot_emotion_int_est <- filter(pilot_emotion_est, is.na(group), term == "(Intercept)") %>%
+  pull(estimate)
+pilot_emotion_cat_est_1 <- filter(pilot_emotion_est, is.na(group), term == "emotion2") %>%
+  pull(estimate)
+pilot_emotion_cat_est_2 <- filter(pilot_emotion_est, is.na(group), term == "emotion3") %>%
+  pull(estimate)
+
+pilot_pr0 <- inv_logit(pilot_emotion_int_est) %>% round(2)
+pilot_pr1_plus <- inv_logit(pilot_emotion_int_est + pilot_emotion_cat_est_1) %>% round(2)
+pilot_pr2_plus <- inv_logit(pilot_emotion_int_est + pilot_emotion_cat_est_2) %>% round(2)
+
+pilot_emotion_est <- pilot_emotion_est %>% 
+  arrange(!is.na(group), group, term) %>%
+  mutate(
+  prob = c(pilot_pr0, pilot_pr1_plus, pilot_pr2_plus, rep(NA, 7))
+) %>%
+  mutate_if(is.numeric, round, 2) %>% 
+  select(effect:estimate, prob, everything())
+
+# print it
+kable(pilot_emotion_est) %>% 
+  kable_classic()
+```
+
+Using this as a baseline, we might expect strong effects wherey depression metaphors bias participants to click up less often when compared to neutral items. There is some evidence for anxiety items being associated with more up clicks than neutral items, although this effect is small and non-significant. There is evidence that neutral items are associated with more up clicks than expected by chance. This however may be due to issues in the design of the neutral items whereby emotions other than anxiety and depression could be present in the items, potentially biasing clicking behaviour.
+
+# Study 1 
+
+## Primary Analyses: Emotion
+
+### Design and Modelling
+
+Our power analysis was based on a design with assumptions as follows:
+
+Emotion is a within-participant but between-item factor with 3 levels; neutral, anxiety, depression. Thus the model will predict up clicks using a generalised linear mixed effects model (using a logit link function) with a fixed effect of emotion and random intercepts and slopes of emotion by participant (including their correlation). Random intercepts will also be included for item. The default "bobyqa" optimiser with default control parameters will be used. 
+
+We will assume 24 items in each condition and vary the number of participants based on the sensitivity of the design with the aim to test the fewest participants that allow us to achieve at least 90% power for our predicted effects. If large increases in the participant number does not greatly increase sensitivity we will adjust the analysis to use a larger number of items per condition. We predict that anxiety causes more up clicks than neutral items, and depression causes more down clicks than neutral items. We will assume that the neutral condition will not bias up clicks any more than expected by chance (i.e. a probability of .50). 
+
+### Parameter Estimates
+
+Using treatment coding with the neutral condition as the baseline we assume that the intercept will have a fixed effect beta on the logit scale of 0 (i.e. a probability of .50 for clicking up). We will assume that participants are at least 1.6 times more likely to click up in the anxiety condition, i.e. approximately twice that observed in the pilot. This estimate is larger than the effect found in the pilot study simply because we still expect anxiety items to cause more up clicks, but we expect now that neutral items will have up clicks that align with chance clicking behaviour. Any effects below this cutoff we assume to be approximately zero, hence this is our smallest effect size of interest. Thus, the fixed effect for this condition is log(1.6) or `r round(log(1.6), 2)` on the logit scale. 
+
+We assume that the fixed effect of the depression condition is at least log(2) or `r round(log(2), 2)` on the logit scale, approximately half that observed in the pilot study. This prediction is made as the pilot study showed particularly strong effects for the depression items which may be unrealistically large, for example due to a type-M error.
+
+We will settle on a participant and item sample size when at least 90% of the simulations show significant effects for the anxiety and depression slope parameter estimates. Additionally, as we predict that the neutral condition will show a non-significant effect (i.e. no deviation from chance) this initial power analysis will give us the probability of a false-positive. We will find this analysis appropriate only when around 5% of simulations show a significant effect for the intercept (given some error). 
+
+While showing that clicking behaviour is due to chance with the neutral items is part of our predictions, this is not key to our hypotheses. Indeed, as long as anxiety and depression items reliably differ from the neutral items we will deem our hypotheses as being corroborated regardless of the baseline upwards clicks for the neutral items. However, for completeness and to test the secondary prediction that clicking behaviour should be due to chance for the neutral items we will perform an equivalence test for both the power analysis and the final analyis in the study. Details of the lower and upper bounds and how this is implemented for a mixed effect model follow after the main power analysis.
+
+When interpreting the fixed effect estimates it is important to realise that the anxiety and depression effects are relative to the neutral effect. This is depicted below across a range of logits. Where the neutral condition has more extreme values (i.e. further from 0), differences between the neutral condition relative to the anxiety and depression conditions is decreased.
+
+```{r fe-plot, fig.width = 8, fig.height = 3}
+data.frame(prob = seq(0, 1, .01)) %>%
+  mutate(
+    neutral = logit(prob),
+    anxiety = neutral + log(1.6),
+    depression = neutral - log(2)
+  ) %>%
+  pivot_longer(
+    cols = c(neutral, anxiety, depression), 
+    names_to = "condition", 
+    values_to = "logit"
+  ) %>% 
+  ggplot(aes(x = logit, y = prob, colour = condition)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(-6, 6, by = 0.4)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
+  theme_bw() +
+  labs(x = "Logit", y = "Probability", colour = "Condition") +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 8),
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 12),
+    legend.position = c(0, 1),
+    legend.justification = c(0, 1),
+    legend.background = element_rect(
+      linetype = "solid",
+      colour = "black"
+    )
+  )
+```
+
+Details of the remaining parameter estimates are provided below and are largely estimated from the pilot study with standard deviations rounded up under the assumption that the pilot study may underestimate the magnitude of any variability in scores.
+
+Over several simulations we found that 96 participants and 24 items per condition was not sufficient to reach a minimum of 90% power for both slope terms. We thus increased this to 105 participants and 30 items per condition.
+
+```{r}
+# set up the custom data simulation function
+simulate_binary_data <- function(
+  n_subj         = 105, # number of subjects
+  n_intercept    = 30,  # number of neutral items
+  n_slope_1      = 30,  # number of anxiety items
+  n_slope_2      = 30,  # number of depression items
+  beta_0         = 0, # intercept (mean of means)
+  beta_1         = log(1.6), # effect of anxiety (vs grand mean); 1.6 times more likely to click up
+  beta_2         = -log(2), # effect of depression (vs grand mean); 2 times more likely to click down
+  omega_0        = 0.5, # by-item random intercept sd
+  tau_0          = 1, # by-subject random intercept sd
+  tau_1          = 0.5, # by-subject random slope sd for beta_1
+  tau_2          = 1.5, # by-subject random slope sd for beta_2
+  rho_1          = 0, # correlation between intercept and slope for beta_1
+  rho_2          = 0.2, # correlation between intercept and slope for beta_2
+  rho_3          = -0.2 # correlation between beta_1 and beta_2
+                        ) {
+   # simulate a sample of items
+  items <- data.frame(
+    item_id = 1:(n_intercept + n_slope_1 + n_slope_2),
+    condition = rep(
+      c("intercept", "slope_1", "slope_2"), 
+      c(n_intercept + n_slope_1 + n_slope_2)
+    ),
+    O_0i = rnorm(n_intercept + n_slope_1 + n_slope_2, 0, omega_0)
+  )
+
+  # effect code category
+  items$X_1 <- recode(
+    items$condition, 
+    "intercept" = 0,
+    "slope_1" = 1,
+    "slope_2" = 0
+  )
+  
+  items$X_2 <- recode(
+    items$condition, 
+    "intercept" = 0,
+    "slope_1" = 0,
+    "slope_2" = 1
+  )
+  
+  # simulate a sample of subjects
+  subjects <- faux::rnorm_multi(
+    n = n_subj, 
+    mu = 0,
+    sd = c(tau_0, tau_1, tau_2),
+    r = c(rho_1, rho_2, rho_3), 
+    varnames = c("T_0s", "T_1s", "T_2s")
+  )
+  subjects$subj_id <- 1:n_subj
+  
+  # cross subject and item IDs 
+  crossing(subjects, items)  %>%
+    mutate(
+      # calculate gaussian DV
+      Y = beta_0 + T_0s + O_0i + (beta_1 + T_1s)*X_1 + (beta_2 + T_2s)*X_2,
+      pr = inv_logit(Y), # transform to probability of getting 1
+      Y_bin = rbinom(nrow(.), 1, pr) # sample from bernoulli distribution
+    ) %>%
+    select(subj_id, item_id, condition, X_1, X_2, Y, Y_bin)
+}
+```
+
+### Power Function
+
+With the data generation process and model fitting methods defined, we performed the power analysis using the following function.
+
+```{r}
+# simulate data and fit model
+single_run <- function(filename = NULL, ...) {
+  # ... is a shortcut that forwards any arguments to my_sim_data()
+  dat_sim <- simulate_binary_data(...)
+  mod_sim <- glmer(
+    Y_bin ~ 1 + X_1 + X_2 + 
+      (1 + X_1 + X_2 | subj_id) + (1 | item_id),
+    data = dat_sim, 
+    family = binomial(link = "logit")
+  )
+  
+  sim_results <- broom.mixed::tidy(mod_sim)
+  
+  # append the results to a file if filename is set
+  if (!is.null(filename)) {
+    append <- file.exists(filename) # append if the file exists
+    write_csv(sim_results, filename, append = append)
+  }
+  
+  # return the tidy table
+  sim_results
+}
+```
+
+The data simulation and model fitting process was carried out using the above parameter estimates and performed 1000 times. We then evaluate the proportion of simulations that provide significant effects for the anxiety and depression terms, aiming for at least 90% of simulations to return a significant effect for both terms, thus ensuring at least 90% power for the study.
+
+```{r}
+# run simulations and save to a file on each rep
+emotion_filename <- here(
+  "03_analysis", 
+  "01_study-one", 
+  "01_power-analysis", 
+  "emotion_simulations.csv"
+)
+
+emotion_parameters <- list(
+  reps = 1e3, # 1000 iterations
+  beta_0 = 0, # intercept (neutral)
+  beta_1 = log(1.6), # slope 1 (anxiety)
+  beta_2 = -log(2), # slope 2 (depression)
+  n_subj = 105, # initially 102
+  n_intercept = 30, # neutral
+  n_slope_1 = 30, # anxiety
+  n_slope_2 = 30, # depression
+  omega_0 = 0.5, # by-item random intercept sd
+  tau_0 = 1, # by-subject random intercept sd
+  tau_1 = 0.5, # by-subject random slope sd for beta_1
+  tau_2 = 1.5, # by-subject random slope sd for beta_2
+  rho_1 = 0, # correlation between intercept and slope for beta_1
+  rho_2 = 0.2, # correlation between intercept and slope for beta_2
+  rho_3 = -0.2 # correlation between beta_1 and beta_2
+)
+
+# all parameters set to the function's defaults so not passed to the function
+if (!file.exists(emotion_filename)) {
+  # run simulations and save to a file
+  emotion_sims <- purrr::map_df(1:reps, ~single_run(
+    filename = emotion_filename
+    )
+  )
+}
+
+# read saved simulation data
+ct <- cols(# makes sure plots display in this order
+  group = col_factor(ordered = TRUE),
+  term = col_factor(ordered = TRUE)
+)
+emotion_sims <- read_csv(emotion_filename, col_types = ct)
+```
+
+### Mean Estimates and Cell Probabilities
+
+The estimates for the simulation are as follows.
+
+```{r}
+# get means of parameter estimates from simulations
+mean_est <- function(tidied_sims, params, rounding = 2) {
+  
+  # make mean estimates
+  est <- tidied_sims %>% 
+    group_by(group, term) %>%
+    summarise(
+      mean_estimate = mean(estimate),
+      mean_se = mean(std.error),
+      mean_statistic = mean(abs(statistic)),
+      prop_sig = mean(p.value < .05),
+      .groups = "drop"
+    )
+  
+  # determine probabilities for intercept and slopes
+  int_est <- filter(est, term == "(Intercept)") %>%
+    pull(mean_estimate)
+  cat_est_1 <- filter(est, term == "X_1") %>%
+    pull(mean_estimate)
+  cat_est_2 <- filter(est, term == "X_2") %>%
+    pull(mean_estimate)
+  
+  # add probabilities to the summary
+  est %>% 
+    arrange(!is.na(group), group, term) %>%
+    mutate(
+      sim = c(
+        params[["beta_0"]], 
+        params[["beta_1"]], 
+        params[["beta_2"]], 
+        params[["tau_0"]], 
+        params[["rho_1"]], 
+        params[["rho_2"]], 
+        params[["tau_1"]], 
+        params[["rho_3"]], 
+        params[["tau_2"]], 
+        params[["omega_0"]] 
+      ),
+      prob = case_when(
+        term == "(Intercept)" ~ inv_logit(int_est),
+        term == "X_1" ~ inv_logit(int_est + cat_est_1),
+        term == "X_2" ~ inv_logit(int_est + cat_est_2),
+        TRUE ~ NA_real_
+      )
+    ) %>%
+    mutate_if(is.numeric, round, 2) %>% 
+    select(group, term, sim, mean_estimate, mean_se, prob, everything()) %>% 
+    rename(set_parameter = sim)
+}
+
+# make mean estimates
+emotion_est <- mean_est(emotion_sims, emotion_parameters)
+
+# print it
+kable(emotion_est) %>% 
+  kable_classic()
+```
+
+This shows that only `r emotion_est %>% filter(term == "(Intercept)") %>% pull(prop_sig) %>% round(2)*100`% of simulations find a significant effect for the intercept (neutral) condition. This matches the alpha level and is expected under the null. The anxiety and depression conditions have significant effects in `r emotion_est %>% filter(term == "X_a") %>% pull(prop_sig) %>% round(2)*100`% and `r emotion_est %>% filter(term == "X_d") %>% pull(prop_sig) %>% round(2)*100`% of simulations respectively. Thus, we have achieved at least 90% power for our minimal effect under the assumed parameters. Crucially, however, because we assume no effect for the neutral condition it is important to estimate how often we can reliably detect a null effect. Under a frequentist framework this requires equivalence testing.
+
+### Equivalence Testing
+
+To evaluate evidence in support of the null hypothesis, i.e. of an effect being practically equivalent to zero, we perform equivalence tests on the model parameter estimates. This requires establishing a region of practical equivalence, which we set as between a score of -log(1.6) and log(1.6) (approximately `r round(-log(1.6), 2)` and `r round(log(1.6), 2)`) on the logit scale. This is selected as the study is powered to detect an effect in the anxiety condition of at least log(1.6) on the logit scale. Thus, because the power analysis assumes this is the minimally interesting effect size we set our region of practical equivalence to be anything below this size in either direction. Using this as our region of practical equivalence we used the two one-sided test (TOST) method and determined the proportion of our simulations whereby the neutral condition's paraemter estimate is practically equivalent to zero. The proportion of simulations showing a statistically equivalent finding for the intercept and slope terms is shown below.
+
+```{r}
+test_equivalence <- function(
+  tidied_model,
+  bound_lower = -log(1.6),
+  bound_upper = log(1.6), 
+  average = TRUE
+  ) {
+  # bounds defaults to +- log(1.6), 
+  # or 1.6 times less more/likely to give a response
+  # this is approximately +- 0.47 logits,
+  # this variest on the probability scale,
+  # but assuming 50% change to give a response
+  # this equates to bounds of 0.38 and 0.62.
+  
+  # filter to fixed effects only
+  fixed_effects <- filter(tidied_model, effect == "fixed")
+  
+  # calcualte 90% Wald CIs and add to df
+  fixed_effects$ci_lower <- fixed_effects$estimate - 
+    fixed_effects$std.error*qnorm(0.95)
+  fixed_effects$ci_upper <- fixed_effects$estimate + 
+    fixed_effects$std.error*qnorm(0.95)
+  
+  # add bounds to the df
+  fixed_effects$bound_lower <- bound_lower  
+  fixed_effects$bound_upper <- bound_upper
+  
+  # make z-scores and p-values for the estimate against each bound
+  fixed_effects$z_lower <- (fixed_effects$estimate - fixed_effects$bound_lower)/
+    fixed_effects$std.error
+  fixed_effects$z_upper <- (fixed_effects$estimate - fixed_effects$bound_upper)/
+    fixed_effects$std.error
+  fixed_effects$p_lower <- pnorm(fixed_effects$z_lower, lower.tail = FALSE)
+  fixed_effects$p_upper <- pnorm(fixed_effects$z_upper, lower.tail = TRUE)
+  
+  # make equivalence test z-scores and p-values
+  fixed_effects <- fixed_effects %>% 
+    rowwise() %>% 
+      mutate(
+        z_quiv = ifelse(abs(z_lower) < abs(z_upper), z_lower, z_upper),
+        p_equiv = max(p_lower, p_upper)
+      ) %>% 
+    select(-group)
+  
+  if(average == TRUE) {
+    # returns averages from equivlanece tests 
+    # (e.g. from many tests from simulation)
+    fixed_effects %>% 
+      group_by(term) %>% 
+      summarise(
+        mean_est = mean(estimate),
+        mean_ci_lower = mean(ci_lower),
+        mean_ci_upper = mean(ci_upper),
+        bound_lower = mean(bound_lower),
+        bound_upper = mean(bound_upper),
+        prop_p_equiv = mean(p_equiv < .05),
+        .groups = "drop"
+      ) %>% 
+      mutate_if(is.numeric, round, 2)
+  } else {
+    # returns the equivalence test
+    fixed_effects
+  }
+}
+
+emotion_equiv_summary <- test_equivalence(emotion_sims) 
+emotion_equiv_summary %>% 
+  kable() %>% 
+  kable_classic()
+```
+
+This shows that approximately `r emotion_equiv_summary %>% filter(term == "(Intercept)") %>% pull(prop_p_equiv)*100`% of simulations found evidence in support of the null hypothesis for the neutral condition. Thus, we have at least 90% power to detect a statistically equivalent effect in this condition. Conversely, for the anxiety and depression conditions only `r emotion_equiv_summary %>% filter(term == "X_a") %>% pull(prop_p_equiv)*100`% and `r emotion_equiv_summary %>% filter(term == "X_d") %>% pull(prop_p_equiv)*100`% of simulations respectively found effects to be practically equivalent to zero. In the anxiety condition, since we predict a smaller effect size in general (but still a significant effect), a false-positive rate for a statistically equivalent effect at 5% is tolerable. In the depression condition, since we predict a larger effect size no simulations show a statistically equivalent effect. 
+
+Overall, under these assumptions our study is adequately powered to detect effects for the anxiety and depression conditions and to find the neutral condition to be statistically equivalent to zero.
+
+## Secondary Analyses: Tense
+
+
+DETAILS
+
+
+```{r}
+pilot_tense_mod_filename <- here(
+  "03_analysis", 
+  "01_study-one", 
+  "01_power-analysis",
+  "pilot_tense_mod.rds"
+)
+
+if (!file.exists(pilot_tense_mod_filename)) {
+  
+  # run model and save to a file
+  mod_tense_pilot <- afex::mixed(
+    clicked_right ~ tense + 
+      (1 + tense || participant) +
+      (1 | item), 
+    data = data_pilot, 
+    family = binomial(link = "logit"),
+    expand_re = TRUE,
+    method = "LRT",
+    return = "merMod",
+    check_contrasts = FALSE
+  )
+  
+  write_rds(mod_tense_pilot, pilot_tense_mod_filename)
+}
+
+if(file.exists(pilot_tense_mod_filename)) {
+  mod_tense_pilot <- read_rds(pilot_tense_mod_filename)
+}
+
+summary(mod_tense_pilot)
+```
+## Secondary Analyses: Tense
+
+### Design and Modelling
+
+Our power analysis was based on a design with assumptions as follows:
+
+ADAPT!!!
+
+Emotion is a within-participant but between-item factor with 3 levels; neutral, anxiety, depression. Thus the model will predict up clicks using a generalised linear mixed effects model (using a logit link function) with a fixed effect of emotion and random intercepts and slopes of emotion by participant. Random intercepts will also be included for item. The default "bobyqa" optimiser with default control parameters will be used. 
+
+We will assume 24 items in each condition and vary the number of participants based on the sensitivity of the design with the aim to test the fewest participants that allow us to achieve at least 80% power for our predicted effects of where anxiety causes more up clicks than neutral and depression causes more down clicks than neutral. We will assume that the neutral condition will not bias up clicks when compared to chance. 
+
+### Parameter Estimates
+
+### Power Function
+
+### Mean Estimates and Cell Probabilities
+
+The estimates for the simulation are as follows.
+
+### Equivalence Testing
+
+
+## Conclusions
+
+Thus, our simulation shows that under the assumed parameters and given this data analysis strategy we have at least `r emotion_est %>% filter(term %in% c("X_a", "X_d")) %>% pull(prop_sig) %>% min()`% power to detect a significant effect in the anxiety and depression conditions and approximately `r emotion_equiv_summary %>% filter(term == "(Intercept)") %>% pull(prop_p_equiv)*100`% power for showing practical equivalence of the effects in the neutral condition. Thus a design with `r emotion_parameters$n_subj` participants and `r max(emotion_parameters$n_intercept, emotion_parameters$n_slope_1, emotion_parameters$n_slope_2)` items per condition is justified.
